@@ -1,5 +1,6 @@
 import os
 import json
+import pickle
 import pandas as pd
 
 from tqdm import tqdm
@@ -47,7 +48,6 @@ def main():
     exclude_date_set = make_date_list(
         start_date=datetime(2025, 7, 21),
     )
-    
     
     target_device_ids = list(user2device.values())
     
@@ -100,7 +100,8 @@ def main():
                 collected_samsung_health_date = set(filenames)
                 missing_date_dict[target_device_id][f"collected_{spec_dir}_date"] = collected_samsung_health_date
                 
-    print("d")
+    with open("upload_check.pkl", "wb") as f:
+        pickle.dump(missing_date_dict, f, pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == "__main__":
