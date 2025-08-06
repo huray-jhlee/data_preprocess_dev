@@ -168,7 +168,6 @@ def main():
     print(message)
     send_to_chat(message)
     
-    pass
 
 
 if __name__ == "__main__":
