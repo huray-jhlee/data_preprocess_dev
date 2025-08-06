@@ -12,8 +12,11 @@ from datetime import datetime, timedelta
 
 load_dotenv()
 
-START_DATE_AI = datetime(2025, 7, 1)
-START_DATE = datetime(2025, 7, 7)
+# START_DATE_AI = datetime(2025, 7, 1)
+# START_DATE = datetime(2025, 7, 7)
+
+START_DATE_AI = datetime(2025, 8, 6)
+START_DATE = datetime(2025, 8, 6)
 
 RAW_DATA_DIR = "/data3/ppg_data/raw"
 CSV_PATH = "/home/ai04/workspace/ppg_process/user_device_table.csv"
@@ -23,13 +26,18 @@ AI_DIVISION = ["4c37111_f66d2e64", "cf782c01_10c971c2", "10639090_4212f054", "a3
 WEBHOOK_KEY = os.getenv("WEBHOOK_KEY")
 WEBHOOK_TOKEN = os.getenv("WEBHOOK_TOKEN")
 
-def parse_user2device(csv_path):
+def parse_user2device(csv_path, reverse=False):
     df = pd.read_csv(csv_path)
     df = df[df["Device_Id"] != "c5ad2c27_a90f2adb"]
     df = df[df["Note"] != "test기기"]
     # df = df[df["Note"] == "test기기"]
     df = df.drop(columns=["Note"])
-    table = dict(zip(df['User_Id'], df['Device_Id']))
+    
+    if reverse:
+        table = dict(zip(df['Device_Id'], df['User_Id']))
+    else:
+        table = dict(zip(df['User_Id'], df['Device_Id']))
+        
     return table
 
 def make_date_list(start_date: datetime, end_date: datetime=None, exclude: set[str]=None):
@@ -51,8 +59,7 @@ def make_date_list(start_date: datetime, end_date: datetime=None, exclude: set[s
 def send_to_chat(message):
     
     app_message = {"text": message}
-    
-    url = f"https://chat.googleapis.com/v1/spaces/AAAAw1daNpw/messages?key={WEBHOOK_KEY}&token={WEBHOOK_TOKEN}"
+    url = f"https://chat.googleapis.com/v1/spaces/AAQA9ue2i9I/messages?key={WEBHOOK_KEY}&token={WEBHOOK_TOKEN}"
     message_headers = {"Content-Type": "application/json; charset=UTF-8"}
     http_obj = Http()
     response = http_obj.request(
@@ -81,36 +88,39 @@ def catch_missing_data(target_device_ids, exclude_date_set, save=True):
             print(f"\nspec dir: {spec_dir}")
             target_dir = os.path.join(target_device_dir, spec_dir)
             
+            # 없으면 넘어가진 말고, 뒤에서 메세지 보낼때 처리
             if not os.path.exists(target_dir):
-                print(f"{target_dir} is not exists")
-                continue
+                os.makedirs(target_dir, exist_ok=True)
             
             filenames = os.listdir(target_dir)
 
             if spec_dir == "har_label":
-                for filename in filenames:
-                    check_path = os.path.join(target_dir, filename)
-                    with open(check_path, "r") as f:
-                        datas = json.load(f)
-                    collected_har_label_date = {inner_dict["timeString"].split(" ")[0] for inner_dict in datas}
-                    
-                    missing_date_dict[target_device_id][spec_dir] = sorted(date_set - collected_har_label_date)
+                
+                date_har_dict = {datetime.strptime(filename.split("_")[0],"%y%m%d"):filename for filename in filenames}
+                latest_filename = date_har_dict[max(date_har_dict)]
+                
+                check_path = os.path.join(target_dir, latest_filename)
+                with open(check_path, "r") as f:
+                    datas = json.load(f)
+                collected_har_label_date = {inner_dict["timeString"].split(" ")[0] for inner_dict in datas}
+                
+                missing_date_dict[target_device_id][spec_dir] = sorted(date_set - collected_har_label_date)
                     
             elif spec_dir == "sensor_data":
                 
-                date_hour_dict = defaultdict(list)
+                date_hour_dict = defaultdict(set)
                 collected_sensor_data_date = set()
                 for filename in filenames:
                     filename = filename.split(".")[0]
                     _, _, date, hour = filename.split("_")
                     collected_sensor_data_date.add(date)
-                    date_hour_dict[date].append(hour)
+                    date_hour_dict[date].add(int(hour))
                 
                 missing_date_dict[target_device_id][spec_dir] = sorted(date_set - collected_sensor_data_date)
-                missing_date_dict[target_device_id][f"{spec_dir}-hour"] = sorted(date_hour_dict)
+                sorted__date_hour_dict = dict(sorted(date_hour_dict.items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d")))
+                missing_date_dict[target_device_id][f"collected_{spec_dir}-hour"] = sorted__date_hour_dict
                 
             else: # samsung_health
-                
                 collected_samsung_health_date = set(filenames)
                 missing_date_dict[target_device_id][f"collected_{spec_dir}_date"] = sorted(collected_samsung_health_date)
     if save:
@@ -122,25 +132,40 @@ def catch_missing_data(target_device_ids, exclude_date_set, save=True):
 def main():
     
     user2device = parse_user2device(CSV_PATH)
+    device2user = parse_user2device(CSV_PATH, reverse=True)
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    
+    # exclude_date_set = make_date_list(
+    #     start_date=datetime(2025, 7, 21),
+    # )
     
     exclude_date_set = make_date_list(
         start_date=datetime(2025, 7, 21),
+        end_date=datetime(2025, 8, 5)
     )
     
     target_device_ids = list(user2device.values())
     
     missing_date_dict = catch_missing_data(target_device_ids, exclude_date_set, save=False)
+    message = f"Missing Data: {today_str}\n{'='*40}"
+    exclude_key = ["collected_sensor_data", "collected_samsung_health_date"]
     
-    message = ""
+    message_dict = defaultdict(list)
+    
     for device_id, device_dict in missing_date_dict.items():
-        message += f"\n{device_id}\n{'-'*40}\n"
         for inner_key, inner_date_list in device_dict.items():
+            if inner_key in exclude_key:
+                continue
+            elif inner_key == "collected_sensor_data-hour":
+                # TODO
+                continue
             if inner_date_list:
-                message += f"{inner_key}\n{', '.join(inner_date_list)}\n\n"
-        message += f"\n{'='*40}\n"
+                message_dict[inner_key].append(device_id)
     
+    for data_type, device_id_list in message_dict.items():
+        message += f"\n{data_type}\n\n{', '.join(device_id_list)}\n{'-'*40}"
+        
     print(message)
-    
     send_to_chat(message)
     
     pass
@@ -148,4 +173,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # send_to_chat()
