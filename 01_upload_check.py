@@ -5,6 +5,7 @@ import pandas as pd
 
 from tqdm import tqdm
 from glob import glob
+from httplib2 import Http
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -41,15 +42,23 @@ def make_date_list(start_date: datetime, end_date: datetime=None, exclude: set[s
     
     return set(sorted(date_set))
 
-def main():
+
+def send_to_chat(message):
     
-    user2device = parse_user2device(CSV_PATH)
+    app_message = {"text": message}
     
-    exclude_date_set = make_date_list(
-        start_date=datetime(2025, 7, 21),
+    url = "https://chat.googleapis.com/v1/spaces/AAAAw1daNpw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=qYKSG8XLLAbZKYlJaB-Rwk5KxA7zaiGxR_hctcVCx5A"    
+    message_headers = {"Content-Type": "application/json; charset=UTF-8"}
+    http_obj = Http()
+    response = http_obj.request(
+        uri=url,
+        method="POST",
+        headers=message_headers,
+        body=json.dumps(app_message),
     )
-    
-    target_device_ids = list(user2device.values())
+    print(response[0].get("status"))
+
+def catch_missing_data(target_device_ids, exclude_date_set, save=True):
     
     progress = tqdm(target_device_ids)
     
@@ -80,7 +89,7 @@ def main():
                         datas = json.load(f)
                     collected_har_label_date = {inner_dict["timeString"].split(" ")[0] for inner_dict in datas}
                     
-                    missing_date_dict[target_device_id][spec_dir] = date_set - collected_har_label_date
+                    missing_date_dict[target_device_id][spec_dir] = sorted(date_set - collected_har_label_date)
                     
             elif spec_dir == "sensor_data":
                 
@@ -92,17 +101,48 @@ def main():
                     collected_sensor_data_date.add(date)
                     date_hour_dict[date].append(hour)
                 
-                missing_date_dict[target_device_id][spec_dir] = date_set - collected_sensor_data_date
-                missing_date_dict[target_device_id][f"{spec_dir}-hour"] = date_hour_dict
+                missing_date_dict[target_device_id][spec_dir] = sorted(date_set - collected_sensor_data_date)
+                missing_date_dict[target_device_id][f"{spec_dir}-hour"] = sorted(date_hour_dict)
                 
             else: # samsung_health
                 
                 collected_samsung_health_date = set(filenames)
-                missing_date_dict[target_device_id][f"collected_{spec_dir}_date"] = collected_samsung_health_date
-                
-    with open("upload_check.pkl", "wb") as f:
-        pickle.dump(missing_date_dict, f, pickle.HIGHEST_PROTOCOL)
+                missing_date_dict[target_device_id][f"collected_{spec_dir}_date"] = sorted(collected_samsung_health_date)
+    if save:
+        with open("upload_check.pkl", "wb") as f:
+            pickle.dump(missing_date_dict, f, pickle.HIGHEST_PROTOCOL)
+        
+    return missing_date_dict
+        
+def main():
+    
+    user2device = parse_user2device(CSV_PATH)
+    
+    exclude_date_set = make_date_list(
+        start_date=datetime(2025, 7, 21),
+    )
+    
+    target_device_ids = list(user2device.values())
+    
+    missing_date_dict = catch_missing_data(target_device_ids, exclude_date_set, save=False)
+    
+    message = ""
+    for device_id, device_dict in missing_date_dict.items():
+        message += f"\n{device_id}\n{'-'*40}\n"
+        for inner_key, inner_date_list in device_dict.items():
+            if inner_date_list:
+                message += f"{inner_key}\n{', '.join(inner_date_list)}\n\n"
+        message += f"\n{'='*40}\n"
+    
+    print(message)
+    
+    
+    # call webhook
+    send_to_chat(message)
+    
+    pass
 
 
 if __name__ == "__main__":
     main()
+    # send_to_chat()
