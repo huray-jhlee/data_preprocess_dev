@@ -6,9 +6,11 @@ import pandas as pd
 from tqdm import tqdm
 from glob import glob
 from httplib2 import Http
+from dotenv import load_dotenv
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+load_dotenv()
 
 START_DATE_AI = datetime(2025, 7, 1)
 START_DATE = datetime(2025, 7, 7)
@@ -17,6 +19,9 @@ RAW_DATA_DIR = "/data3/ppg_data/raw"
 CSV_PATH = "/home/ai04/workspace/ppg_process/user_device_table.csv"
 
 AI_DIVISION = ["4c37111_f66d2e64", "cf782c01_10c971c2", "10639090_4212f054", "a31d491b_4a3ec8e8", "5c5cbde6_992e5ecc", "414a7e87_1887ce0f"]
+
+WEBHOOK_KEY = os.getenv("WEBHOOK_KEY")
+WEBHOOK_TOKEN = os.getenv("WEBHOOK_TOKEN")
 
 def parse_user2device(csv_path):
     df = pd.read_csv(csv_path)
@@ -47,7 +52,7 @@ def send_to_chat(message):
     
     app_message = {"text": message}
     
-    url = "https://chat.googleapis.com/v1/spaces/AAAAw1daNpw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=qYKSG8XLLAbZKYlJaB-Rwk5KxA7zaiGxR_hctcVCx5A"    
+    url = f"https://chat.googleapis.com/v1/spaces/AAAAw1daNpw/messages?key={WEBHOOK_KEY}&token={WEBHOOK_TOKEN}"
     message_headers = {"Content-Type": "application/json; charset=UTF-8"}
     http_obj = Http()
     response = http_obj.request(
@@ -136,8 +141,6 @@ def main():
     
     print(message)
     
-    
-    # call webhook
     send_to_chat(message)
     
     pass
