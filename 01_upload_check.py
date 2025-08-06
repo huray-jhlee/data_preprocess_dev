@@ -163,7 +163,7 @@ def main():
                 message_dict[inner_key].append(device_id)
     
     for data_type, device_id_list in message_dict.items():
-        message += f"\n{data_type}\n\n{', '.join(device_id_list)}\n{'-'*40}"
+        message += f"\n{data_type}\n\n{', '.join([device2user[device_id] for device_id in device_id_list])}\n{'-'*40}"
         
     print(message)
     send_to_chat(message)
