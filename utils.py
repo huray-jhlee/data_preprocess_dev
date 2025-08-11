@@ -1,9 +1,6 @@
-import os
 import struct
-import pandas as pd
+
 from glob import glob
-from tqdm import tqdm
-from pathlib import Path
 from datetime import datetime
 
 MAGIC_HEADER = 0x53454E53
@@ -15,10 +12,11 @@ REVERSE_SENSOR_TYPE_MAP = {
     1005: "SAMSUNG_TEMP",
     1006: "SAMSUNG_ACCE",
     1007: "SAMSUNG_ECG",
-    1008:"LIGHT",
-    1009:"TYPE_STEP_COUNTER",
+    1008: "LIGHT",
+    1009: "TYPE_STEP_COUNTER",
 }
 
+#### For decoding binary files
 
 def format_timestamp(timestamp: int) -> str:
     try:
@@ -45,6 +43,8 @@ def parse_batch(file):
         raise EOFError("fixed part error")
 
     sensor_type, collected_ts, accuracy, data_size = struct.unpack(">I Q I I", fixed_part)
+    # if sensor_type == 1005:
+    #     print(1)
     
     value_bytes = file.read(data_size * 4)
     if len(value_bytes) < data_size * 4:
@@ -96,3 +96,5 @@ def process_binary(file_path):
                 data_sequence += 1
                 
     return sensor_record_list
+
+#### For processing samsung health
