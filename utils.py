@@ -1,7 +1,7 @@
 import struct
 import isodate
 from zoneinfo import ZoneInfo
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 #### For decoding binary files
 
@@ -105,9 +105,11 @@ def utc2kst(time):
     
     if isinstance(time, str):
         time = datetime.fromisoformat(time.replace("Z", "+00:00"))
+    elif isinstance(time, datetime) and time.tzinfo is None:
+        time = time.replace(tzinfo=timezone.utc)
 
     kst_dt = time.astimezone(ZoneInfo("Asia/Seoul"))
-    kst_str = kst_dt.isoformat()
+    kst_str = kst_dt.isoformat(timespec="milliseconds")
     
     return kst_str
 

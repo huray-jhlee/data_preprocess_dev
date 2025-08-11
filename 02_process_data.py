@@ -137,7 +137,6 @@ def main():
             data_type = os.path.basename(target_path).split("_")[0]
             with open(target_path, "r") as f:
                 datas = json.load(f)
-            print(1)
             processed_health_list = process_samsung_health(datas, data_type)
             results += processed_health_list
         
