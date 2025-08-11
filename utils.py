@@ -1,7 +1,9 @@
 import struct
+import isodate
+from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta
 
-from glob import glob
-from datetime import datetime
+#### For decoding binary files
 
 MAGIC_HEADER = 0x53454E53
 REVERSE_SENSOR_TYPE_MAP = {
@@ -98,3 +100,26 @@ def process_binary(file_path):
     return sensor_record_list
 
 #### For processing samsung health
+
+def utc2kst(time):
+    
+    if isinstance(time, str):
+        time = datetime.fromisoformat(time.replace("Z", "+00:00"))
+
+    kst_dt = time.astimezone(ZoneInfo("Asia/Seoul"))
+    kst_str = kst_dt.isoformat()
+    
+    return kst_str
+
+def parse_iso_duration(input_duration):
+    try:
+        duration = isodate.parse_duration(input_duration)
+        if isinstance(duration, timedelta):
+            # print("iso duration format")
+            return duration.total_seconds()
+        else :
+            # print("iso duration format (date-based)")
+            return duration
+    except :
+        # print("not iso duration format")
+        return input_duration
