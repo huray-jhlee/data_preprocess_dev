@@ -1,0 +1,4 @@
+tqdm
+httplib2
+python-dotenv
+pyarrow
