@@ -70,7 +70,7 @@ def send_to_chat(message):
     )
     print(response[0].get("status"))
 
-def catch_missing_data(target_device_ids, exclude_date_set, save=True):
+def catch_missing_data(target_device_ids, exclude_date_set):
     
     progress = tqdm(target_device_ids)
     
@@ -81,11 +81,12 @@ def catch_missing_data(target_device_ids, exclude_date_set, save=True):
             start_date=START_DATE if target_device_id not in AI_DIVISION else START_DATE_AI,
             exclude=exclude_date_set
         )
-        progress.set_description(f"Device-> {target_device_id}")
         target_device_dir = os.path.join(RAW_DATA_DIR, target_device_id)
         
         for spec_dir in ["har_label", "sensor_data", "samsung_health"]:
-            print(f"\nspec dir: {spec_dir}")
+            # print(f"\nspec dir: {spec_dir}")
+            progress.set_description(f"Device-> {target_device_id}, spec_dir-> {spec_dir}")
+            
             target_dir = os.path.join(target_device_dir, spec_dir)
             
             # 없으면 넘어가진 말고, 뒤에서 메세지 보낼때 처리
@@ -123,13 +124,10 @@ def catch_missing_data(target_device_ids, exclude_date_set, save=True):
             else: # samsung_health
                 collected_samsung_health_date = set(filenames)
                 missing_date_dict[target_device_id][f"collected_{spec_dir}_date"] = sorted(collected_samsung_health_date)
-    if save:
-        with open("upload_check.pkl", "wb") as f:
-            pickle.dump(missing_date_dict, f, pickle.HIGHEST_PROTOCOL)
         
     return missing_date_dict
         
-def main():
+def main(save_pkl=False):
     
     user2device = parse_user2device(CSV_PATH)
     device2user = parse_user2device(CSV_PATH, reverse=True)
@@ -146,11 +144,13 @@ def main():
     
     target_device_ids = list(user2device.values())
     
-    missing_date_dict = catch_missing_data(target_device_ids, exclude_date_set, save=False)
-    message = f"Missing Data: {today_str}\n{'='*40}"
+    missing_date_dict = catch_missing_data(target_device_ids, exclude_date_set)
+    message = f"Missing Data Report: {today_str}\n{'='*40}"
     exclude_key = ["collected_sensor_data", "collected_samsung_health_date"]
     
     message_dict = defaultdict(list)
+    
+    invalid_ids = set()
     
     for device_id, device_dict in missing_date_dict.items():
         for inner_key, inner_date_list in device_dict.items():
@@ -161,14 +161,24 @@ def main():
                 continue
             if inner_date_list:
                 message_dict[inner_key].append(device_id)
+                invalid_ids.add(device_id)
     
+    missing_date_dict["valid_data"] = {
+        "date": today_str,
+        "device_ids": set(target_device_ids) - invalid_ids,
+    }
+    
+    if save_pkl:
+        with open("upload_check.pkl", "wb") as f:
+            pickle.dump(missing_date_dict, f, pickle.HIGHEST_PROTOCOL)
+            
     for data_type, device_id_list in message_dict.items():
         message += f"\n{data_type}\n\n{', '.join([device2user[device_id] for device_id in device_id_list])}\n{'-'*40}"
         
     print(message)
-    send_to_chat(message)
+    # send_to_chat(message)
     
 
 
 if __name__ == "__main__":
-    main()
+    main(save_pkl=True)
