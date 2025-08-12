@@ -43,10 +43,8 @@ def parse_batch(file):
     fixed_part = file.read(20)
     if len(fixed_part) < 20:
         raise EOFError("fixed part error")
-
+    
     sensor_type, collected_ts, accuracy, data_size = struct.unpack(">I Q I I", fixed_part)
-    # if sensor_type == 1005:
-    #     print(1)
     
     value_bytes = file.read(data_size * 4)
     if len(value_bytes) < data_size * 4:
@@ -113,15 +111,12 @@ def utc2kst(time):
     
     return kst_str
 
-def parse_iso_duration(input_duration):
+def parse_iso_duration(input_data):
     try:
-        duration = isodate.parse_duration(input_duration)
+        duration = isodate.parse_duration(input_data)
         if isinstance(duration, timedelta):
-            # print("iso duration format")
             return duration.total_seconds()
         else :
-            # print("iso duration format (date-based)")
             return duration
     except :
-        # print("not iso duration format")
-        return input_duration
+        return input_data
