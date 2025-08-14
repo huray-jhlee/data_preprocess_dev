@@ -39,12 +39,12 @@ def make_date_list(start_date: datetime=None, end_date: datetime=None, exclude: 
         start_date = today - timedelta(days=today.weekday())
     
     today = datetime.today() if end_date is None else end_date
-    current = today
+    
+    current = today if today.hour >= 16 else today-timedelta(days=1)
     
     date_set = set()
     while current.date() >= start_date.date():
-        if current.weekday() < 5:
-            date_set.add(current.strftime("%Y-%m-%d"))
+        date_set.add(current.strftime("%Y-%m-%d"))
         current -= timedelta(days=1)
     
     if exclude is not None:
@@ -68,10 +68,16 @@ def send_to_chat(message):
 
 def catch_missing_data(target_device_ids):
     
+    # today = datetime.now()
+    # target_date = today if today.hour >= 16 else today-timedelta(days=1)
+    
     progress = tqdm(target_device_ids)
     
     missing_date_dict = defaultdict(dict)
     date_set = make_date_list()
+    
+    date_obj_list = [datetime.strptime(ds, "%Y-%m-%d") for ds in date_set]
+    week_start_date = min(date_obj_list)
 
     for target_device_id in progress:
         target_device_dir = os.path.join(RAW_DATA_DIR, target_device_id)
@@ -88,7 +94,6 @@ def catch_missing_data(target_device_ids):
             filenames = os.listdir(target_dir)
 
             if spec_dir == "har_label":
-                
                 date_har_dict = {datetime.strptime(filename.split("_")[0],"%y%m%d"):filename for filename in filenames}
                 latest_filename = date_har_dict[max(date_har_dict)]
                 
@@ -101,11 +106,13 @@ def catch_missing_data(target_device_ids):
                     
             elif spec_dir == "sensor_data":
                 date_hour_dict = defaultdict(set)
-                
                 collected_sensor_data_date_list = []
-                for filename in filenames:
+                filenames = sorted(filenames)
+                for filename in filenames[::-1]:
                     filename = filename.split(".")[0]
                     _, _, date, hour = filename.split("_")
+                    if datetime.strptime(date, "%Y-%m-%d") < week_start_date :
+                        break
                     collected_sensor_data_date_list.append(date)
                     date_hour_dict[date].add(int(hour))
                 
@@ -126,12 +133,15 @@ def main(save_pkl=False):
     
     user2device = parse_user2device(CSV_PATH)
     device2user = parse_user2device(CSV_PATH, reverse=True)
-    today_str = datetime.today().strftime("%Y-%m-%d")
+    today = datetime.today()
+    target_date = today if today.hour >= 16 else today - timedelta(days=1)
+    target_date_str = target_date.strftime("%Y-%m-%d")
     
     target_device_ids = list(user2device.values())
+    target_device_ids = ["a31d491b_4a3ec8e8"]
     
     missing_date_dict = catch_missing_data(target_device_ids)
-    message = f"Missing Data Report: {today_str}\n{'='*40}"
+    message = f"Missing Data Report: {target_date_str}\n{'='*40}"
     exclude_key = ["samsung_health"]
     
     message_dict = defaultdict(list)
@@ -150,7 +160,7 @@ def main(save_pkl=False):
                 invalid_ids.add(device_id)
     
     missing_date_dict["valid_data"] = {
-        "date": today_str,
+        "date": target_date_str,
         "device_ids": set(target_device_ids) - invalid_ids,
     }
     
