@@ -18,8 +18,8 @@ from config import DATA_UNITS, VALUE_KEY, VALUE_STR_KEY, FUNCTION_MAP
 load_dotenv()
 
 RAW_DATA_DIR = os.getenv("RAW_DATA_DIR")
-# PROCESSED_DATA_DIR = os.getenv("PROCESSED_DATA_DIR")
-PROCESSED_DATA_DIR = "/home/ai04/workspace/ppg_process/test"  # TODO: for debugging
+PROCESSED_DATA_DIR = os.getenv("PROCESSED_DATA_DIR")
+# PROCESSED_DATA_DIR = "/home/ai04/workspace/ppg_process/test"    # TODO: for debugging
 
 # 삼성헬스 어플리케이션에서 제공하는 사전 운동 타입
 # https://developer.samsung.com/health/android/data/api-reference/EXERCISE_TYPE.html
@@ -32,8 +32,10 @@ REMOVE_KEYS = ["uid", "appId", "deviceId", "startTime", "endTime"]
 def process_sensor_data(device_id, target_date):
     
     target_device_dir = os.path.join(RAW_DATA_DIR, device_id)
-
     sensor_data_dir = os.path.join(target_device_dir, "sensor_data")
+    # sensor_data_dir = "samsung_health/2025-08-12"  # TODO: for debug
+    # sensor_data_dir = "samsung_health/debug"  # TODO: for debug
+    
     target_sensor_data_paths = glob(os.path.join(sensor_data_dir, f"*{target_date}*"))
     target_sensor_data_paths = sorted(target_sensor_data_paths)
     
@@ -106,11 +108,10 @@ def main():
     with open("upload_check.pkl", "rb") as f:
         data_dict = pickle.load(f)
     
-    # target_date = data_dict["valid_data"]["date"]
-    # valid_device_ids = data_dict["valid_data"]["device_ids"]
-    
-    target_date = "2025-08-12"                      # TODO: for debugging
-    valid_device_ids = ["a31d491b_4a3ec8e8"]        # TODO: for debugging
+    target_date = data_dict["valid_data"]["date"]
+    valid_device_ids = data_dict["valid_data"]["device_ids"]
+    # target_date = "2025-08-12"                      # TODO: for debugging
+    # valid_device_ids = ["a31d491b_4a3ec8e8"]        # TODO: for debugging
     for valid_device_id in valid_device_ids:
         
         collected_df = process_sensor_data(valid_device_id, target_date)
