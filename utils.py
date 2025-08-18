@@ -162,8 +162,8 @@ def process_binary(file_path):
             
             for i in range(batch_size):
                 rec_pos = file.tell()
-                if rec_pos == 7333536: 
-                    print(1)
+                # if rec_pos == 7333536:            # TODO: for debugging
+                #     print(1)
                 sensor_data, err = parse_batch(file)
                 if not sensor_data:
                     error_info = {
