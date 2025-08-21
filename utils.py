@@ -18,6 +18,7 @@ REVERSE_SENSOR_TYPE_MAP = {
     1007: "SAMSUNG_ECG",
     1008: "LIGHT",
     1009: "TYPE_STEP_COUNTER",
+    1010: "SAMSUNG_IBI"
 }
 
 #### For decoding binary files
@@ -49,6 +50,7 @@ def parse_batch(file):
         1004: 2,
         1005: 2,
         1006: 3,
+        1010: 0,
         # 1002, 1007, 1008, 1009 Sensors are not collected
     }
     
@@ -91,6 +93,13 @@ def parse_batch(file):
                         "got": data_size,
                         "expected": "length of HeartRate needs at least 2"
                     }
+            elif sensor_type == 1010:
+                if data_size == check_size:
+                    return True, {
+                        "at": "data_size",
+                        "got": data_size,
+                        "expected": "valid ibi data size, but continue"
+                    }
             elif data_size != check_size:
                 return False, {
                     "at": "data_size",
@@ -118,7 +127,6 @@ def parse_batch(file):
     
     value_bytes = file.read(data_size * 4)
     if len(value_bytes) < data_size * 4:
-        # raise EOFError("값 부족")
         return False, {
             "at": "value_bytes",
             "pos": start_pos,
@@ -178,6 +186,9 @@ def process_binary(file_path):
                     print("Error detected:", error_info)
                     invalid_file_flag = True
                     break
+                elif err is not None:
+                    # for passing dummy ibi data
+                    continue
                 
                 # before_tmp_sensor[i] = sensor_data   # TODO: for debugging
                 sensor_type_str = REVERSE_SENSOR_TYPE_MAP[sensor_data.get("sensor_type")]
