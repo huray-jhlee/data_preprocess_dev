@@ -155,7 +155,7 @@ def main(save_pkl=False):
             elif inner_key == "collected-sensor_data-hour":
                 # TODO
                 continue
-            if inner_date_list:
+            if target_date_str in inner_date_list:
                 message_dict[inner_key].append(device_id)
                 invalid_ids.add(device_id)
     
@@ -163,6 +163,7 @@ def main(save_pkl=False):
         "date": target_date_str,
         "device_ids": set(target_device_ids) - invalid_ids,
     }
+    
     
     if save_pkl:
         with open("upload_check.pkl", "wb") as f:

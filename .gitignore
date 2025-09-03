@@ -5,3 +5,5 @@ samsung_health/
 __pycache__/
 *.json
 !exercise_type.json
+test/
+*.ipynb
